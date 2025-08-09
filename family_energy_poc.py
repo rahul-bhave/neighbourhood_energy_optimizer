@@ -1,8 +1,8 @@
-import time, uuid, threading, os
+import time, uuid, threading, os, sqlite3
 from queue import Queue, Empty
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 MOCK_MODE = True  # Toggle for live calls
@@ -65,12 +65,30 @@ class BaseAgent(threading.Thread):
 
 # --- Agents ---
 class EnergyMonitorAgent(BaseAgent):
+    def __init__(self, name, bus, db_path="mock_data.db"):
+        super().__init__(name, bus)
+        self.db_path = db_path
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.cur = self.conn.cursor()
+
     def run(self):
         while True:
-            total_gen, total_load = 5.0, 3.0
+            self.cur.execute("""
+                SELECT house_id, gen_kw, load_kw, soc_pct
+                FROM telemetry
+                WHERE timestamp = (SELECT MAX(timestamp) FROM telemetry)
+            """)
+            rows = self.cur.fetchall()
+            total_gen = sum(r[1] for r in rows)
+            total_load = sum(r[2] for r in rows)
             surplus = total_gen - total_load
-            state = {"total_gen_kw": total_gen, "total_load_kw": total_load, "surplus_kw": surplus}
-            mcp_id = create_mcp(state, {"house_1": {"flexible_loads":["EV"]}}, {}, {})
+            state = {
+                "total_gen_kw": total_gen,
+                "total_load_kw": total_load,
+                "surplus_kw": surplus
+            }
+            profiles = {r[0]: {"flexible_loads": ["EV", "laundry"]} for r in rows}
+            mcp_id = create_mcp(state, profiles, {}, {})
             env = envelope(self.name, "optimization", "state_update", state, mcp_id)
             self.send(env)
             time.sleep(2)
