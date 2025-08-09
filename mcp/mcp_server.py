@@ -1,6 +1,8 @@
-# MCP server: simple stdio JSON-lines server
+# MCP server (stdio JSON-lines)
 import sys, json, sqlite3, os, traceback
+
 DB = os.path.join(os.path.dirname(__file__), "../data/mock_data.db")
+
 def handle_request(req):
     cmd = req.get('cmd')
     if cmd == 'get_consumer_summary':

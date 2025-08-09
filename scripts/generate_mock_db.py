@@ -1,9 +1,10 @@
-import sqlite3, random, time, os
+import sqlite3, random, os
 from datetime import datetime, timedelta
 
 DB = os.path.join(os.path.dirname(__file__), "../data/mock_data.db")
 
 def create_db():
+    os.makedirs(os.path.dirname(DB), exist_ok=True)
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
     cur.execute("""
@@ -16,6 +17,7 @@ def create_db():
     )
     """)
     conn.commit()
+
     consumers = [f"consumer_{i:03d}" for i in range(1,101)]
     base_date = datetime.utcnow().date() - timedelta(days=9)
     records = []
@@ -31,11 +33,11 @@ def create_db():
                 base -= random.uniform(0.0, 2.5)
             daily_kwh = max(0.2, round(base, 2))
             records.append((c, date, daily_kwh, efficient, solar))
+
     cur.executemany("INSERT INTO consumption VALUES (?, ?, ?, ?, ?)", records)
     conn.commit()
     conn.close()
     print(f"Inserted {len(records)} records into {DB}")
 
 if __name__ == '__main__':
-    os.makedirs(os.path.dirname(DB), exist_ok=True)
     create_db()
