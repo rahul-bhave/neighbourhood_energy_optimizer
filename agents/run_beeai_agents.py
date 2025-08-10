@@ -4,6 +4,9 @@ load_dotenv()
 
 # regenerate mock DB so every run has fresh data
 import logging
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logging.info("Regenerating mock DB...")
 import scripts.generate_mock_db as gen_db

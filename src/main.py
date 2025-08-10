@@ -27,17 +27,27 @@ def main():
     # Create shared emitter for inter-agent communication
     shared_emitter = Emitter()
 
+    # Add completion tracking
+    completion_event = threading.Event()
+    
     logging.info("Starting BeeAI agents (monitor + incentives)...")
-    t1 = threading.Thread(target=run_monitor, args=(mcp, None, shared_emitter), daemon=True)
-    t2 = threading.Thread(target=run_incentives, args=(mcp, shared_emitter), daemon=True)
+    logging.info("Agents will process all 50 consumers and then exit...")
+    
+    t1 = threading.Thread(target=run_monitor, args=(mcp, None, shared_emitter, completion_event), daemon=True)
+    t2 = threading.Thread(target=run_incentives, args=(mcp, shared_emitter, completion_event), daemon=True)
     t1.start()
     t2.start()
 
     try:
-        while True:
-            time.sleep(0.5)
+        # Wait for completion or timeout after 30 seconds
+        completion_event.wait(timeout=30)
+        if completion_event.is_set():
+            logging.info('All 50 consumers processed successfully. Shutting down...')
+        else:
+            logging.info('Timeout reached. Shutting down...')
     except KeyboardInterrupt:
         logging.info('Shutting down...')
+    finally:
         mcp.close()
 
 

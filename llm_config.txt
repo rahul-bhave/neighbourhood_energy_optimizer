@@ -1,0 +1,23 @@
+# LLM Configuration Instructions
+# =============================
+
+# Current Status: Using Mock LLM (templates)
+# To enable actual WatsonX AI:
+
+# 1. Create a .env file in the root directory with:
+USE_WATSONX=true
+WATSONX_API_KEY=your_api_key_here
+WATSONX_PROJECT_ID=your_project_id_here
+WATSONX_URL=https://us-south.ml.cloud.ibm.com
+WATSONX_MODEL=ibm/granite-3-2-8b-instruct
+
+# 2. Get WatsonX credentials from IBM Cloud:
+#    - Go to: https://cloud.ibm.com/ai/watsonx
+#    - Create a project and get API key and Project ID
+
+# 3. The system will automatically:
+#    - Use WatsonX if credentials are valid
+#    - Fallback to templates if LLM fails
+#    - Show [MOCK LLM] prefix when using templates
+
+# Current behavior: Using personalized templates with fallback

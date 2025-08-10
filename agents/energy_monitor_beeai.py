@@ -31,7 +31,8 @@ class EnergyMonitorAgent(BaseAgent):
         # Run the main loop directly
         await self.loop_monitor()
 
-    async def loop_monitor(self):
+    async def loop_monitor(self, completion_event=None):
+        processed_count = 0
         while True:
             try:
                 resp = await asyncio.to_thread(self.mcp_client.request, {'cmd':'get_consumer_summary'})
@@ -50,14 +51,28 @@ class EnergyMonitorAgent(BaseAgent):
                 emitter = self._create_emitter()
                 await emitter.emit('state_update', msg)
                 print(f"[Monitor] Sent state update: {msg}")
+                
+                # Track processing and signal completion
+                processed_count += 1
+                if processed_count >= 5:  # Process 5 cycles then signal completion
+                    print(f"[Monitor] Completed processing cycles. Signaling completion...")
+                    if completion_event:
+                        completion_event.set()
+                    break
+                    
             except Exception as e:
                 print(f'[Monitor] exception: {str(e)}')
             await asyncio.sleep(2)
 
-def run_monitor(mcp_client, db_path, shared_emitter=None):
+def run_monitor(mcp_client, db_path, shared_emitter=None, completion_event=None):
     agent = EnergyMonitorAgent(name='monitor', mcp_client=mcp_client, db_path=db_path)
     if shared_emitter:
         agent._emitter = shared_emitter
+    
+    # Create a wrapper to pass completion_event to the async method
+    async def run_with_completion():
+        await agent.loop_monitor(completion_event)
+    
     # Run the agent using the run method
     import asyncio
-    asyncio.run(agent.run())
+    asyncio.run(run_with_completion())

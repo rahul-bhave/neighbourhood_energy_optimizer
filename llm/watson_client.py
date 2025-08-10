@@ -10,10 +10,39 @@ logging.info(f"USE_WATSONX: {USE_WATSONX}")
 logging.info(f"WATSONX_MODEL: {MODEL}")
 
 prompt_templates = {
-    'incentive_notification': """Dear {consumer_id},
-Congratulations! Your average energy usage over the past month was {avg_kwh} kWh/day.
-As a reward for using energy-efficient equipment and producing solar power, you have been awarded a {discount}% discount on your next bill.
+    'incentive_notification_10_percent': """Dear {consumer_id},
+Congratulations! Your average energy usage over the past month was {avg_kwh} kWh/day, which is below the 4 kWh threshold.
+You are using Energy Efficient equipment and have produced solar energy. You are eligible for a 10% discount on your next bill!
 Thank you for helping the community reduce carbon emissions.
+-- Your Community Energy Team""",
+
+    'incentive_notification_5_percent_efficient': """Dear {consumer_id},
+Great news! Your average energy usage over the past month was {avg_kwh} kWh/day, which is below the 4 kWh threshold.
+You are using Energy Efficient equipment. You are eligible for a 5% discount on your next bill!
+Consider installing solar panels to qualify for an additional 5% discount.
+-- Your Community Energy Team""",
+
+    'incentive_notification_5_percent_solar': """Dear {consumer_id},
+Excellent! Your average energy usage over the past month was {avg_kwh} kWh/day, which is below the 4 kWh threshold.
+You have produced solar energy. You are eligible for a 5% discount on your next bill!
+Consider upgrading to Energy Efficient equipment to qualify for an additional 5% discount.
+-- Your Community Energy Team""",
+
+    'incentive_notification_no_discount_low_usage': """Dear {consumer_id},
+Your average energy usage over the past month was {avg_kwh} kWh/day, which is below the 4 kWh threshold - great job!
+However, you are not currently eligible for discounts. To qualify for discounts:
+- Install Energy Efficient equipment (5% discount)
+- Add solar panels (5% discount)
+- Or both for a 10% discount!
+-- Your Community Energy Team""",
+
+    'incentive_notification_high_usage': """Dear {consumer_id},
+Your average energy usage over the past month was {avg_kwh} kWh/day.
+To qualify for discounts and reduce your energy costs:
+- Reduce usage to below 4 kWh/day
+- Install Energy Efficient equipment (5% discount)
+- Add solar panels (5% discount)
+- Or all three for a 10% discount!
 -- Your Community Energy Team""",
 
     'recommendation': """Dear {consumer_id},

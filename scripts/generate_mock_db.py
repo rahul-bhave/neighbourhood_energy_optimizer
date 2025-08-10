@@ -21,21 +21,72 @@ def create_db():
     """)
     conn.commit()
 
-    consumers = [f"consumer_{i:03d}" for i in range(1,101)]
+    # Create randomized consumer IDs to make data look more realistic
+    # Generate 50 random 6-digit consumer IDs
+    consumer_ids = []
+    for i in range(50):
+        # Generate random 6-digit number
+        random_id = random.randint(100000, 999999)
+        consumer_id = f"consumer_{random_id}"
+        consumer_ids.append(consumer_id)
+    
     base_date = datetime.utcnow().date() - timedelta(days=9)
     records = []
-    for c in consumers:
-        efficient = 1 if random.random() < 0.4 else 0
-        solar = 1 if random.random() < 0.3 else 0
+    
+    # Scenario 1: 10% discount - usage < 4KW, efficient equipment, solar output (4-5 records)
+    for i in range(5):
+        consumer = consumer_ids[i]
+        efficient = 1
+        solar = 1
         for d in range(10):
             date = (base_date + timedelta(days=d)).isoformat()
-            base = random.uniform(2.0, 12.0)
-            if efficient:
-                base *= random.uniform(0.6, 0.9)
-            if solar:
-                base -= random.uniform(0.0, 2.5)
-            daily_kwh = max(0.2, round(base, 2))
-            records.append((c, date, daily_kwh, efficient, solar))
+            # Low usage: 2.0-3.8 kWh/day
+            daily_kwh = round(random.uniform(2.0, 3.8), 2)
+            records.append((consumer, date, daily_kwh, efficient, solar))
+    
+    # Scenario 2: 5% discount - usage < 4KW, efficient equipment, NO solar output (4-5 records)
+    for i in range(5, 10):
+        consumer = consumer_ids[i]
+        efficient = 1
+        solar = 0
+        for d in range(10):
+            date = (base_date + timedelta(days=d)).isoformat()
+            # Low usage: 2.5-3.9 kWh/day
+            daily_kwh = round(random.uniform(2.5, 3.9), 2)
+            records.append((consumer, date, daily_kwh, efficient, solar))
+    
+    # Scenario 3: 5% discount - usage < 4KW, NO efficient equipment, solar output (4-5 records)
+    for i in range(10, 15):
+        consumer = consumer_ids[i]
+        efficient = 0
+        solar = 1
+        for d in range(10):
+            date = (base_date + timedelta(days=d)).isoformat()
+            # Low usage: 2.0-3.8 kWh/day
+            daily_kwh = round(random.uniform(2.0, 3.8), 2)
+            records.append((consumer, date, daily_kwh, efficient, solar))
+    
+    # Scenario 4: No discount - usage < 4KW, NO efficient equipment, NO solar output (4-5 records)
+    for i in range(15, 20):
+        consumer = consumer_ids[i]
+        efficient = 0
+        solar = 0
+        for d in range(10):
+            date = (base_date + timedelta(days=d)).isoformat()
+            # Low usage: 2.5-3.9 kWh/day
+            daily_kwh = round(random.uniform(2.5, 3.9), 2)
+            records.append((consumer, date, daily_kwh, efficient, solar))
+    
+    # Scenario 5: No discount - usage >= 4KW, various combinations (remaining 30 records)
+    for i in range(20, 50):
+        consumer = consumer_ids[i]
+        efficient = random.choice([0, 1])
+        solar = random.choice([0, 1])
+        for d in range(10):
+            date = (base_date + timedelta(days=d)).isoformat()
+            # Higher usage: 4.0-12.0 kWh/day
+            daily_kwh = round(random.uniform(4.0, 12.0), 2)
+            records.append((consumer, date, daily_kwh, efficient, solar))
 
     cur.executemany("INSERT INTO consumption VALUES (?, ?, ?, ?, ?)", records)
     conn.commit()
