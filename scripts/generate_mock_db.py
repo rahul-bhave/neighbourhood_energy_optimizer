@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 DB = os.path.join(os.path.dirname(__file__), "../data/mock_data.db")
 
 def create_db():
+    # Ensure a fresh DB on each run by removing any existing file
+    if os.path.exists(DB):
+        os.remove(DB)
     os.makedirs(os.path.dirname(DB), exist_ok=True)
     conn = sqlite3.connect(DB)
     cur = conn.cursor()

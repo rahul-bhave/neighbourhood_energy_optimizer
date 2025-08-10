@@ -1,27 +1,43 @@
-from beeai.agent import Agent, run_agent
-from beeai.serve.acp import Client as AcpClient
+from beeai_framework.agents.base import BaseAgent
+from beeai_framework.emitter.emitter import Emitter
+from beeai_framework.memory import UnconstrainedMemory
 from mcp.store import create_mcp
 import time
+import asyncio
 
-class EnergyMonitorAgent(Agent):
+class EnergyMonitorAgent(BaseAgent):
     def __init__(self, name, mcp_client, db_path, **kwargs):
-        super().__init__(name=name, **kwargs)
+        super().__init__(**kwargs)
+        self.name = name
         self.mcp_client = mcp_client
         self.db_path = db_path
-        self.acp = AcpClient()
+        self._emitter = None
 
-    async def start(self):
-        await super().start()
-        # schedule the main loop as an async background task
-        self.create_task(self.loop_monitor())
+    @property
+    def memory(self):
+        # Return a simple memory implementation
+        from beeai_framework.memory import UnconstrainedMemory
+        return UnconstrainedMemory()
+
+    def _create_emitter(self):
+        # Create a simple emitter for inter-agent communication
+        if self._emitter is None:
+            self._emitter = Emitter()
+        return self._emitter
+
+    async def run(self):
+        # Main run method
+        # Initialize the agent
+        # Run the main loop directly
+        await self.loop_monitor()
 
     async def loop_monitor(self):
         while True:
             try:
-                resp = self.mcp_client.request({'cmd':'get_consumer_summary'})
+                resp = await asyncio.to_thread(self.mcp_client.request, {'cmd':'get_consumer_summary'})
                 if not resp.get('ok'):
-                    self.log('[Monitor] MCP error: %s' % resp)
-                    await self.sleep(2)
+                    print(f'[Monitor] MCP error: {resp}')
+                    await asyncio.sleep(2)
                     continue
                 data = resp.get('data', [])
                 total_load = sum(d['avg_kwh'] for d in data)
@@ -29,13 +45,19 @@ class EnergyMonitorAgent(Agent):
                 state = {'total_gen_kw': total_gen, 'total_load_kw': total_load, 'surplus_kw': max(0, total_gen - total_load)}
                 profiles = {d['consumer_id']:{'uses_efficient_equipment':d['uses_efficient_equipment'], 'produces_solar':d['produces_solar']} for d in data}
                 mcp_id = create_mcp(state, profiles, {}, {})
-                # send state_update via ACP
+                # send state_update via emitter
                 msg = {'msg_id': self.name + '-state', 'from': self.name, 'to': 'incentives', 'type': 'state_update', 'mcp_context_id': mcp_id, 'payload': {'summary_count': len(data)}}
-                self.acp.send(msg)
+                emitter = self._create_emitter()
+                await emitter.emit('state_update', msg)
+                print(f"[Monitor] Sent state update: {msg}")
             except Exception as e:
-                self.log('[Monitor] exception: %s' % str(e))
-            await self.sleep(2)
+                print(f'[Monitor] exception: {str(e)}')
+            await asyncio.sleep(2)
 
-def run_monitor(mcp_client, db_path):
+def run_monitor(mcp_client, db_path, shared_emitter=None):
     agent = EnergyMonitorAgent(name='monitor', mcp_client=mcp_client, db_path=db_path)
-    run_agent(agent)
+    if shared_emitter:
+        agent._emitter = shared_emitter
+    # Run the agent using the run method
+    import asyncio
+    asyncio.run(agent.run())

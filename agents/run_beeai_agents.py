@@ -3,10 +3,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # regenerate mock DB so every run has fresh data
-print("Regenerating mock DB...")
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logging.info("Regenerating mock DB...")
 import scripts.generate_mock_db as gen_db
 gen_db.create_db()
-print("Mock DB regenerated.")
+logging.info("Mock DB regenerated.")
 
 # start MCP client (spawns mcp_server as subprocess)
 from mcp.mcp_client import MCPClient

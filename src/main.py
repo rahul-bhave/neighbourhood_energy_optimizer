@@ -1,26 +1,45 @@
-import os, time
+import os
+import time
+import threading
+import logging
 from dotenv import load_dotenv
-from acp.bus import MessageBus
-from mcp.mcp_client import MCPClient
-from agents.energy_monitor import EnergyMonitorAgent
-from agents.incentives import IncentivesAgent
 
-load_dotenv()
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts.generate_mock_db import create_db
+from mcp.mcp_client import MCPClient
+from agents.energy_monitor_beeai import run_monitor
+from agents.incentives_beeai import run_incentives
+from beeai_framework.emitter.emitter import Emitter
+
 
 def main():
-    bus = MessageBus()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    load_dotenv()
+
+    # Fresh mock DB for each run
+    create_db()
+
+    # start MCP client (spawns mcp_server as subprocess)
     mcp = MCPClient(server_py=os.path.join(os.path.dirname(__file__), '../mcp/mcp_server.py'))
-    db_path = os.path.join(os.path.dirname(__file__), '../data/mock_data.db')
-    monitor = EnergyMonitorAgent('monitor', bus, mcp, db_path)
-    incentives = IncentivesAgent('incentives', bus, mcp)
-    monitor.start()
-    incentives.start()
+
+    # Create shared emitter for inter-agent communication
+    shared_emitter = Emitter()
+
+    logging.info("Starting BeeAI agents (monitor + incentives)...")
+    t1 = threading.Thread(target=run_monitor, args=(mcp, None, shared_emitter), daemon=True)
+    t2 = threading.Thread(target=run_incentives, args=(mcp, shared_emitter), daemon=True)
+    t1.start()
+    t2.start()
+
     try:
         while True:
             time.sleep(0.5)
     except KeyboardInterrupt:
-        print('shutting down...')
+        logging.info('Shutting down...')
         mcp.close()
+
 
 if __name__ == '__main__':
     main()

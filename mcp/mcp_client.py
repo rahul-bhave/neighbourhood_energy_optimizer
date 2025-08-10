@@ -1,4 +1,5 @@
 import subprocess, sys, json, threading, queue, os, time
+import logging
 
 class MCPClientError(Exception):
     pass
@@ -14,6 +15,8 @@ class MCPClient:
         self._responses = queue.Queue()
         self._reader = threading.Thread(target=self._read_loop, daemon=True)
         self._reader.start()
+        self._stderr_reader = threading.Thread(target=self._stderr_loop, daemon=True)
+        self._stderr_reader.start()
 
     def _read_loop(self):
         for line in self.proc.stdout:
@@ -24,6 +27,12 @@ class MCPClient:
             except:
                 resp = {'ok': False, 'error': 'invalid_json', 'raw': line}
             self._responses.put(resp)
+
+    def _stderr_loop(self):
+        for line in self.proc.stderr:
+            line = line.rstrip('\n')
+            if line:
+                logging.error("[MCP server stderr] %s", line)
 
     def request(self, payload, timeout=5):
         with self._lock:
