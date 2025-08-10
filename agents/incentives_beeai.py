@@ -283,71 +283,91 @@ Please contact us for a detailed energy audit and customized recommendations to 
 -- Your Community Energy Team"""
 
     async def loop_incentives(self, completion_event=None):
-        processed_once = False
+        processed_consumers = 0
+        total_consumers = 0
+        
         while True:
             try:
-                # Listen for state updates from monitor agent
+                # Listen for individual consumer data from monitor agent
                 emitter = self._create_emitter()
-                # For now, simulate receiving a message every few seconds
-                # In a real implementation, you would use emitter.on() to listen for events
-                await asyncio.sleep(2)  # Wait for potential messages
                 
-                # Simulate a state update message for testing
-                msg = {'type': 'state_update', 'payload': {'summary_count': 50}}
-                
-                if msg.get('type') == 'state_update' and not processed_once:
+                # Simulate receiving consumer data (in real implementation, you'd listen for events)
+                if processed_consumers == 0:
+                    # Get all consumers to know the total count
                     resp = await asyncio.to_thread(self.mcp_client.request, {'cmd':'get_consumer_summary'})
                     if not resp.get('ok'):
                         print(f'[Incentives] MCP error: {resp}')
                         continue
                     
-                    data = resp.get('data', [])
-                    print(f'[Incentives] Processing {len(data)} consumers...')
+                    all_consumers = resp.get('data', [])
+                    total_consumers = len(all_consumers)
+                    print(f'[Incentives] Ready to process {total_consumers} consumers one by one...')
+                
+                # Process one consumer at a time
+                if processed_consumers < total_consumers:
+                    consumer = all_consumers[processed_consumers]
                     
-                    # Process all consumers and categorize them
+                    # Determine scenario for this consumer
+                    scenario = self.determine_discount_scenario(consumer)
+                    
+                    # Generate and display notification
+                    print(f'\n[Incentives] Processing consumer {processed_consumers + 1}/{total_consumers}: {consumer["consumer_id"]} ({scenario})')
+                    message = self.generate_notification_message(consumer, scenario)
+                    print(f"NOTIFICATION for {consumer['consumer_id']}:")
+                    print(message)
+                    print("-" * 80)
+                    
+                    # Send acknowledgment back to monitor
+                    ack_msg = {
+                        'msg_id': f'incentives-ack-{processed_consumers}',
+                        'from': 'incentives',
+                        'to': 'monitor',
+                        'type': 'consumer_processed',
+                        'payload': {
+                            'consumer_id': consumer['consumer_id'],
+                            'scenario': scenario,
+                            'processed_index': processed_consumers
+                        }
+                    }
+                    await emitter.emit('consumer_processed', ack_msg)
+                    print(f"[Incentives] Acknowledged processing of {consumer['consumer_id']}")
+                    
+                    processed_consumers += 1
+                    
+                    # Small delay to simulate processing time
+                    await asyncio.sleep(0.5)
+                    
+                else:
+                    # All consumers processed
+                    print(f'\n[Incentives] Completed processing all {total_consumers} consumers.')
+                    print(f'[Incentives] Summary of processed consumers:')
+                    
+                    # Generate summary
                     scenarios = {
-                        '10_percent': [],
-                        '5_percent_efficient': [],
-                        '5_percent_solar': [],
-                        'no_discount_low_usage': [],
-                        'high_usage': []
+                        '10_percent': 0,
+                        '5_percent_efficient': 0,
+                        '5_percent_solar': 0,
+                        'no_discount_low_usage': 0,
+                        'high_usage': 0
                     }
                     
-                    for consumer in data:
+                    for consumer in all_consumers:
                         scenario = self.determine_discount_scenario(consumer)
-                        scenarios[scenario].append(consumer)
+                        scenarios[scenario] += 1
                     
-                    # Print summary
-                    print(f'[Incentives] Summary:')
-                    print(f'  - 10% discount eligible: {len(scenarios["10_percent"])}')
-                    print(f'  - 5% discount (efficient): {len(scenarios["5_percent_efficient"])}')
-                    print(f'  - 5% discount (solar): {len(scenarios["5_percent_solar"])}')
-                    print(f'  - No discount (low usage): {len(scenarios["no_discount_low_usage"])}')
-                    print(f'  - High usage: {len(scenarios["high_usage"])}')
+                    print(f'  - 10% discount eligible: {scenarios["10_percent"]}')
+                    print(f'  - 5% discount (efficient): {scenarios["5_percent_efficient"]}')
+                    print(f'  - 5% discount (solar): {scenarios["5_percent_solar"]}')
+                    print(f'  - No discount (low usage): {scenarios["no_discount_low_usage"]}')
+                    print(f'  - High usage: {scenarios["high_usage"]}')
                     
-                    # Generate notifications for each scenario
-                    for scenario, consumers in scenarios.items():
-                        if consumers:
-                            print(f'\n[Incentives] Processing {scenario} scenario ({len(consumers)} consumers):')
-                            for consumer in consumers:  # Show ALL consumers in each category
-                                message = self.generate_notification_message(consumer, scenario)
-                                print(f"NOTIFICATION for {consumer['consumer_id']}:")
-                                print(message)
-                                print("-" * 80)
-                    
-                    if not any(scenarios.values()):
-                        print('No consumers found in data.')
-                    
-                    # Mark as processed and signal completion
-                    processed_once = True
-                    print(f'[Incentives] Completed processing all {len(data)} consumers.')
                     if completion_event:
                         completion_event.set()
                     break
                         
             except Exception as e:
                 print(f'[Incentives] exception: {str(e)}')
-            await asyncio.sleep(0.1)
+                await asyncio.sleep(1)
 
 def run_incentives(mcp_client, shared_emitter=None, completion_event=None):
     agent = IncentivesAgent(name='incentives', mcp_client=mcp_client)

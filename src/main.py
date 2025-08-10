@@ -39,8 +39,8 @@ def main():
     t2.start()
 
     try:
-        # Wait for completion or timeout after 30 seconds
-        completion_event.wait(timeout=30)
+        # Wait for completion or timeout after 60 seconds
+        completion_event.wait(timeout=60)
         if completion_event.is_set():
             logging.info('All 50 consumers processed successfully. Shutting down...')
         else:

@@ -12,6 +12,8 @@ class EnergyMonitorAgent(BaseAgent):
         self.mcp_client = mcp_client
         self.db_path = db_path
         self._emitter = None
+        self.processed_consumers = 0
+        self.total_consumers = 0
 
     @property
     def memory(self):
@@ -32,37 +34,48 @@ class EnergyMonitorAgent(BaseAgent):
         await self.loop_monitor()
 
     async def loop_monitor(self, completion_event=None):
-        processed_count = 0
-        while True:
+        # Get all consumers first
+        resp = await asyncio.to_thread(self.mcp_client.request, {'cmd':'get_consumer_summary'})
+        if not resp.get('ok'):
+            print(f'[Monitor] MCP error: {resp}')
+            return
+        
+        all_consumers = resp.get('data', [])
+        self.total_consumers = len(all_consumers)
+        print(f'[Monitor] Starting to process {self.total_consumers} consumers one by one...')
+        
+        # Process each consumer individually
+        for i, consumer in enumerate(all_consumers):
             try:
-                resp = await asyncio.to_thread(self.mcp_client.request, {'cmd':'get_consumer_summary'})
-                if not resp.get('ok'):
-                    print(f'[Monitor] MCP error: {resp}')
-                    await asyncio.sleep(2)
-                    continue
-                data = resp.get('data', [])
-                total_load = sum(d['avg_kwh'] for d in data)
-                total_gen = max(0, len(data) * 1.5 - total_load/10)
-                state = {'total_gen_kw': total_gen, 'total_load_kw': total_load, 'surplus_kw': max(0, total_gen - total_load)}
-                profiles = {d['consumer_id']:{'uses_efficient_equipment':d['uses_efficient_equipment'], 'produces_solar':d['produces_solar']} for d in data}
-                mcp_id = create_mcp(state, profiles, {}, {})
-                # send state_update via emitter
-                msg = {'msg_id': self.name + '-state', 'from': self.name, 'to': 'incentives', 'type': 'state_update', 'mcp_context_id': mcp_id, 'payload': {'summary_count': len(data)}}
-                emitter = self._create_emitter()
-                await emitter.emit('state_update', msg)
-                print(f"[Monitor] Sent state update: {msg}")
+                # Send individual consumer data to incentives agent
+                msg = {
+                    'msg_id': f'{self.name}-consumer-{i}',
+                    'from': self.name,
+                    'to': 'incentives',
+                    'type': 'consumer_data',
+                    'payload': {
+                        'consumer': consumer,
+                        'consumer_index': i,
+                        'total_consumers': self.total_consumers
+                    }
+                }
                 
-                # Track processing and signal completion
-                processed_count += 1
-                if processed_count >= 5:  # Process 5 cycles then signal completion
-                    print(f"[Monitor] Completed processing cycles. Signaling completion...")
-                    if completion_event:
-                        completion_event.set()
-                    break
-                    
+                emitter = self._create_emitter()
+                await emitter.emit('consumer_data', msg)
+                print(f"[Monitor] Sent consumer {i+1}/{self.total_consumers}: {consumer['consumer_id']}")
+                
+                # Wait for acknowledgment from incentives agent
+                # In a real implementation, you would listen for the acknowledgment
+                await asyncio.sleep(1)  # Simulate processing time
+                
+                self.processed_consumers += 1
+                
             except Exception as e:
-                print(f'[Monitor] exception: {str(e)}')
-            await asyncio.sleep(2)
+                print(f'[Monitor] exception processing consumer {i}: {str(e)}')
+        
+        print(f"[Monitor] Completed processing all {self.total_consumers} consumers. Signaling completion...")
+        if completion_event:
+            completion_event.set()
 
 def run_monitor(mcp_client, db_path, shared_emitter=None, completion_event=None):
     agent = EnergyMonitorAgent(name='monitor', mcp_client=mcp_client, db_path=db_path)
