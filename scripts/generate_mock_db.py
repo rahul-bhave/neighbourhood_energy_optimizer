@@ -91,7 +91,6 @@ def create_db():
     cur.executemany("INSERT INTO consumption VALUES (?, ?, ?, ?, ?)", records)
     conn.commit()
     conn.close()
-    print(f"Inserted {len(records)} records into {DB}")
 
 if __name__ == '__main__':
     create_db()

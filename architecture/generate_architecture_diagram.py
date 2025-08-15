@@ -208,3 +208,6 @@ def save_architecture_diagram(filename='technical_architecture.png'):
 
 if __name__ == '__main__':
     save_architecture_diagram()
+
+
+
