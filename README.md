@@ -14,6 +14,8 @@ The system uses a multi-agent architecture with the following components:
 - **MCP (Model Context Protocol)**: Handles data access and communication
 - **BeeAI Framework**: Provides agent infrastructure and communication
 - **LLM Integration**: WatsonX AI for personalized message generation with fallback templates
+- <img width="785" height="580" alt="image" src="https://github.com/user-attachments/assets/bd430fd8-6a7d-4b88-9d48-c713ad1c9b32" />
+
 
 ### Architecture Diagrams
 
