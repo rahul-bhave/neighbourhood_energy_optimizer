@@ -2,6 +2,9 @@
 
 A sophisticated multi-agent system for analyzing residential energy consumption and providing personalized discount incentives based on energy efficiency criteria.
 
+🎥 [Watch Demo Video](https://youtu.be/r3MOKz0hM1c)
+
+
 ## 🏗️ System Architecture
 
 The system uses a multi-agent architecture with the following components:
